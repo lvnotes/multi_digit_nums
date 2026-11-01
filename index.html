@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Досліджую багатоцифрові числа</title>
+<style>
+:root{--ink:#14324a;--sea:#18a9c9;--paper:#f3fafc;--line:#b9dbe5;--ok:#1f8a4c;--okbg:#d8f3e2;--bad:#c93a3a;--badbg:#fde2e2}
+*{box-sizing:border-box}
+body{margin:0;font:17px/1.45 "Trebuchet MS",system-ui,sans-serif;color:var(--ink);background:var(--paper)}
+.wrap{max-width:780px;margin:0 auto;padding:0 14px 60px}
+header.top{background:var(--sea);color:#fff;padding:22px 14px 26px;border-radius:0 0 28px 28px;margin-bottom:18px;text-align:center}
+h1{margin:0;font-size:clamp(22px,5vw,32px)}
+header.top p{margin:6px 0 0;opacity:.95;font-size:15px}
+section.task{background:#fff;border:2px solid var(--line);border-radius:18px;padding:16px;margin:0 0 16px}
+.task h2{display:flex;gap:10px;align-items:flex-start;font-size:18px;margin:0 0 14px}
+.badge{flex:none;width:32px;height:32px;border-radius:9px;background:var(--sea);color:#fff;display:grid;place-items:center;font-weight:700}
+input,select{font:inherit;color:inherit;border:2px solid var(--line);border-radius:10px;padding:6px 8px;background:#fff;min-width:0}
+input:disabled,select:disabled{opacity:1;-webkit-text-fill-color:currentColor}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid #ffb703;outline-offset:2px}
+.ok{background:var(--okbg)!important;border-color:var(--ok)!important;color:#0d5a2d!important}
+.bad{background:var(--badbg)!important;border-color:var(--bad)!important;color:#8e1f1f!important}
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:12px}
+.nb{display:flex;align-items:center;gap:8px}
+.nb input{width:100%;text-align:center}
+.num{font-weight:700;font-size:19px;padding:4px 10px;border:2px solid var(--ink);border-radius:10px;background:#eaf7fb;font-variant-numeric:tabular-nums}
+.pairs{display:grid;gap:10px}
+.pair{display:grid;grid-template-columns:1fr 130px;gap:10px;align-items:center}
+.pill{border:2px solid var(--sea);border-radius:999px;padding:6px 14px;background:#fff}
+.cmps{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.cmp{display:flex;align-items:center;justify-content:center;gap:8px;font-weight:700;font-variant-numeric:tabular-nums}
+.cmp select{width:62px;text-align:center;font-weight:700}
+.rows{display:grid;gap:10px}
+.row{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.row .lbl{font-weight:700;min-width:80px;font-variant-numeric:tabular-nums}
+.row input{flex:1;min-width:190px}
+.foot{display:flex;align-items:center;gap:14px;margin-top:14px;flex-wrap:wrap}
+.res{font-weight:700}
+.btn{background:var(--ink);color:#fff;border:0;border-radius:12px;padding:10px 18px;font:inherit;cursor:pointer}
+.btn.alt{background:#fff;color:var(--ink);border:2px solid var(--ink)}
+.btn:disabled{opacity:.45;cursor:default}
+.actions{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin:22px 0}
+#summary{background:#fff;border:3px solid var(--sea);border-radius:18px;padding:20px;text-align:center}
+#summary h2{margin:0 0 10px}
+.big{font-size:42px;font-weight:700;margin:4px 0}
+.bar{height:16px;border-radius:99px;background:var(--badbg);overflow:hidden;margin:10px auto 16px;max-width:420px}
+.bar i{display:block;height:100%;background:var(--ok)}
+.sl{list-style:none;margin:0 auto 14px;padding:0;max-width:420px;text-align:left}
+.sl li{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line)}
+.hidden{display:none}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Досліджую багатоцифрові числа</h1>
+  <p>Щоразу нові числа — всі в межах мільйона</p>
+</header>
+<div class="wrap">
+  <main id="app"></main>
+  <div class="actions">
+    <button class="btn" id="finish">Завершити та показати підсумок</button>
+    <button class="btn alt" id="again">Нові числа</button>
+  </div>
+  <div id="summary" class="hidden" aria-live="polite"></div>
+</div>
+
+<script>
+const R=(a,b)=>Math.floor(Math.random()*(b-a+1))+a;
+const pick=a=>a[R(0,a.length-1)];
+const shuffle=a=>{for(let i=a.length-1;i>0;i--){const j=R(0,i);[a[i],a[j]]=[a[j],a[i]]}return a};
+const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.textContent=h;return e};
+const num=v=>{v=String(v).replace(/\s/g,'');return /^\d+$/.test(v)?+v:NaN};
+const inp=lbl=>{const i=el('input');i.type='text';i.inputMode='numeric';i.autocomplete='off';i.setAttribute('aria-label',lbl);return i};
+const parts=n=>String(n).split('').map((d,i,a)=>d*10**(a.length-1-i)).filter(x=>x);
+
+/* ---------- числа словами ---------- */
+const O=["","один","два","три","чотири","п’ять","шість","сім","вісім","дев’ять"];
+const OF=["","одна","дві","три","чотири","п’ять","шість","сім","вісім","дев’ять"];
+const TN=["десять","одинадцять","дванадцять","тринадцять","чотирнадцять","п’ятнадцять","шістнадцять","сімнадцять","вісімнадцять","дев’ятнадцять"];
+const T=["","","двадцять","тридцять","сорок","п’ятдесят","шістдесят","сімдесят","вісімдесят","дев’яносто"];
+const H=["","сто","двісті","триста","чотириста","п’ятсот","шістсот","сімсот","вісімсот","дев’ятсот"];
+function triple(n,fem){const h=Math.floor(n/100),t=Math.floor(n/10)%10,o=n%10,w=[];
+  if(h)w.push(H[h]);
+  if(t===1)w.push(TN[o]);else{if(t)w.push(T[t]);if(o)w.push((fem?OF:O)[o]);}
+  return w.join(' ');}
+function words(n){const th=Math.floor(n/1000),r=n%1000,w=[];
+  if(th){if(th===1)w.push("тисяча");else{const l2=th%100,l=th%10;
+    const f=(l2>10&&l2<20)?"тисяч":l===1?"тисяча":(l>=2&&l<=4)?"тисячі":"тисяч";
+    w.push(triple(th,true),f);}}
+  if(r)w.push(triple(r,false));
+  const s=w.join(' ');return s[0].toUpperCase()+s.slice(1);}
+
+/* ---------- завдання 1: сусіди ---------- */
+function t1(){
+  const ns=shuffle([R(1,9)*10000,R(1,9)*100000,R(100,999)*1000,R(100001,999998)]);
+  const body=el('div','grid4'),cells=[];
+  ns.forEach(n=>{const row=el('div','nb'),a=inp('число перед '+n),b=inp('число після '+n);
+    row.append(a,el('span','num',n),b);body.append(row);
+    cells.push({el:a,test:()=>num(a.value)===n-1},{el:b,test:()=>num(b.value)===n+1});});
+  return{title:"Запиши «сусідів» числа.",body,cells};
+}
+
+/* ---------- завдання 2: назва → запис ---------- */
+function t2(){
+  let [a,b]=shuffle([1,2,3,4,5,6,7,8,9]);
+  const tpl=[a*1000+b,a*1000+b*100,a*1000+b*10,a*100000+b*1000,a*100000+b*10,a*100000+b*100,a*100000+b*10000,a*10000+b*1000];
+  const ns=shuffle(tpl).slice(0,6),opts=shuffle(ns.slice());
+  const body=el('div','pairs'),cells=[];
+  ns.forEach(n=>{const row=el('div','pair'),s=el('select');
+    s.setAttribute('aria-label',words(n));
+    s.append(new Option('—',''));opts.forEach(o=>s.append(new Option(o,o)));
+    row.append(el('div','pill',words(n)),s);body.append(row);
+    cells.push({el:s,test:()=>+s.value===n});});
+  return{title:"Добери до назви числа відповідний цифровий запис.",body,cells};
+}
+
+/* ---------- завдання 3: число → сума розрядних доданків ---------- */
+function rndZero(len){
+  for(;;){const d=[R(1,9)];for(let i=1;i<len;i++)d.push(Math.random()<.4?0:R(1,9));
+    const z=d.filter(x=>x===0).length;
+    if(z>=1&&len-z>=3)return +d.join('');}
+}
+function t3(){
+  const ns=shuffle([rndZero(5),rndZero(5),rndZero(6),rndZero(6)]);
+  const body=el('div','rows'),cells=[];
+  ns.forEach(n=>{const row=el('div','row'),i=el('input');
+    i.type='text';i.autocomplete='off';i.placeholder='від більшого до меншого: 10000 + 600 + 40';i.setAttribute('aria-label','сума розрядних доданків числа '+n);
+    row.append(el('span','lbl',n+' ='),i);body.append(row);
+    const exp=parts(n).join(',');
+    cells.push({el:i,test:()=>{const p=i.value.split('+').map(s=>s.replace(/\s/g,''));
+      if(!p.length||p.some(s=>!/^\d+$/.test(s)))return false;
+      return p.map(Number).join(',')===exp;}});});
+  return{title:"Запиши кожне число як суму його розрядних доданків.",body,cells};
+}
+
+/* ---------- завдання 4: порівняння ---------- */
+function pairGen(type){
+  if(type==='len'){const L=R(4,6);return[R(10**(L-1),10**L-1),R(10**(L-2),10**(L-1)-1)];}
+  const L=R(4,6),x=R(10**(L-1),10**L-1);
+  if(type==='eq')return[x,x];
+  const d=String(x).split(''),k=R(0,L-1);let nd;
+  do{nd=R(k===0?1:0,9);}while(nd===+d[k]);
+  const y=d.slice();y[k]=nd;
+  for(let i=k+1;i<L;i++)if(Math.random()<.5)y[i]=R(0,9);
+  return[x,+y.join('')];
+}
+function t4(){
+  const types=shuffle(['len','len','len','eq',...Array(8).fill('same')]);
+  const body=el('div','cmps'),cells=[];
+  types.forEach(tp=>{let [x,y]=pairGen(tp);if(Math.random()<.5)[x,y]=[y,x];
+    const row=el('div','cmp'),s=el('select');
+    s.setAttribute('aria-label','порівняй '+x+' і '+y);
+    ['','<','=','>'].forEach(o=>s.append(new Option(o||'○',o)));
+    row.append(el('span',null,x),s,el('span',null,y));body.append(row);
+    const sg=x<y?'<':x>y?'>':'=';
+    cells.push({el:s,test:()=>s.value===sg});});
+  return{title:"Порівняй.",body,cells};
+}
+
+/* ---------- завдання 5: сума → число ---------- */
+function t5(){
+  const ns=[rndZero(5),rndZero(5),rndZero(6),rndZero(6),rndZero(6),rndZero(5)];
+  const body=el('div','rows'),cells=[];
+  shuffle(ns).forEach(n=>{const p=parts(n);
+    const row=el('div','row'),i=inp(p.join(' + '));
+    row.append(el('span','lbl',p.join(' + ')+' ='),i);body.append(row);
+    cells.push({el:i,test:()=>num(i.value)===n});});
+  return{title:"Запиши числа за сумами їх розрядних доданків.",body,cells};
+}
+
+/* ---------- каркас ---------- */
+let tasks=[];
+const app=document.getElementById('app'),sum=document.getElementById('summary');
+const pl=n=>{const l=n%10,l2=n%100;return(l2>10&&l2<20)?'балів':l===1?'бал':(l>=2&&l<=4)?'бали':'балів'};
+
+function check(t){
+  if(t.done)return;t.done=true;t.ok=0;
+  t.cells.forEach(c=>{const g=c.test();c.el.classList.add(g?'ok':'bad');c.el.disabled=true;if(g)t.ok++;});
+  t.btn.disabled=true;
+  t.res.textContent='Результат: '+t.ok+' з '+t.cells.length;
+  t.res.className='res '+(t.ok===t.cells.length?'ok':'');
+  t.res.style.padding='2px 10px';t.res.style.borderRadius='10px';
+}
+
+function build(){
+  app.textContent='';sum.className='hidden';sum.textContent='';
+  tasks=[t1(),t2(),t3(),t4(),t5()];
+  tasks.forEach((t,i)=>{
+    const s=el('section','task'),h=el('h2');
+    h.append(el('span','badge',i+1),el('span',null,t.title));
+    const foot=el('div','foot');
+    t.btn=el('button','btn','Перевірити');t.btn.type='button';
+    t.res=el('span','res');
+    t.btn.onclick=()=>check(t);
+    foot.append(t.btn,t.res);
+    s.append(h,t.body,foot);app.append(s);
+  });
+}
+
+function finish(){
+  tasks.forEach(check);
+  const got=tasks.reduce((a,t)=>a+t.ok,0),all=tasks.reduce((a,t)=>a+t.cells.length,0),pct=Math.round(got/all*100);
+  const msg=pct>=90?"Чудово! Ти впевнено працюєш з багатоцифровими числами.":
+    pct>=70?"Добре! Перегляньте червоні відповіді та спробуйте ще раз.":
+    pct>=50?"Непогано, але варто ще потренуватися.":
+    "Не засмучуйся — спробуй ще раз, числа вже будуть новими.";
+  sum.textContent='';
+  const ul=el('ul','sl');
+  tasks.forEach((t,i)=>{const li=el('li');li.append(el('span',null,'Завдання '+(i+1)),el('b',t.ok===t.cells.length?'ok':null,t.ok+' з '+t.cells.length));ul.append(li);});
+  const bar=el('div','bar'),fill=el('i');fill.style.width=pct+'%';bar.append(fill);
+  const again=el('button','btn','Спробувати з новими числами');again.type='button';
+  again.onclick=()=>{build();window.scrollTo({top:0,behavior:'smooth'});};
+  sum.append(el('h2',null,'Підсумок'),el('div','big',got+' з '+all+' '+pl(all)),el('div',null,'Правильно: '+pct+'%'),bar,ul,el('p',null,msg),again);
+  sum.className='';sum.scrollIntoView({behavior:'smooth',block:'center'});
+}
+
+document.getElementById('finish').onclick=finish;
+document.getElementById('again').onclick=()=>{build();window.scrollTo({top:0,behavior:'smooth'});};
+build();
+</script>
+</body>
+</html>
